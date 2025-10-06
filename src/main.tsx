@@ -1,17 +1,15 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import "./styles.css"; // global styles
+// src/main.tsx
+// All comments in English only.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import { WagmiProvider } from './wagmi';
+import { config } from './wagmi';
 
-// Create TanStack Query client (wagmi v2 depends on it)
-const queryClient = new QueryClient();
-
-const el = document.getElementById("root");
-if (el) {
-  createRoot(el).render(
-    <QueryClientProvider client={queryClient}>
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <WagmiProvider config={config}>
       <App />
-    </QueryClientProvider>
-  );
-}
+    </WagmiProvider>
+  </React.StrictMode>
+);
