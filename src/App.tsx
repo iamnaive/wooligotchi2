@@ -5,7 +5,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   useAccount,
-  useBalance,
   useChainId,
   useConnect,
   useDisconnect,
@@ -14,13 +13,13 @@ import {
   WagmiProvider,
 } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { config as wagmiConfig, MONAD as monadChain } from "./wagmi";
+import { config as wagmiConfig, monadTestnet as monadChain } from "./wagmi-phantom-only";
 import { Address, parseAbi } from "viem";
 
 import Tamagotchi from "./components/Tamagotchi";
 import { GameProvider } from "./game/useGame";
 import { catalog, type AnimSet, type FormKey } from "./game/catalog";
-import { getLives, setLives, useOneLife } from "./game/lives";
+import { getLives, setLives } from "./game/lives";
 import "./styles.css";
 
 // ===== ENV =====
@@ -31,7 +30,7 @@ const COLLECTION_ADDRESS = String(
   (import.meta as any).env.VITE_COLLECTION_ADDRESS || ""
 ).toLowerCase() as Address;
 const VAULT_ADDRESS = String(
-  (import.meta as any).env.VITE_VAULT_ADDRESS || ""
+  (import.meta as any).env.VAULT_ADDRESS || (import.meta as any).env.VITE_VAULT_ADDRESS || ""
 ).toLowerCase() as Address;
 
 // ===== Inline SendByIdPanel =====
@@ -235,6 +234,15 @@ async function fetchLivesREST(address?: string | null): Promise<number> {
   }
 }
 
+// Small helper to spend one life on the client mirror (poll will reconcile)
+function spendOneLifeLocal(chainId: number, address?: string | null) {
+  if (!address) return false;
+  const cur = getLives(chainId, address) || 0;
+  if (cur <= 0) return false;
+  setLives(chainId, address, cur - 1);
+  return true;
+}
+
 function useRemoteLives(chainId: number | undefined, address?: string | null) {
   const [lives, setLivesState] = useState(0);
   useEffect(() => {
@@ -256,7 +264,6 @@ function AppInner() {
   const chainId = useChainId();
   const { connect, connectors, status: connectStatus } = useConnect();
   const { disconnect } = useDisconnect();
-  const { data: balance } = useBalanceMock(address, chainId);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [form, setForm] = useState<FormKey>(() => loadForm());
@@ -358,11 +365,11 @@ function AppInner() {
               onEvolve={(n) => setForm(n)}
               lives={lives}
               onLoseLife={() => {
-                const spent = useOneLife(
+                const ok = spendOneLifeLocal(
                   chainId ?? MONAD_CHAIN_ID,
                   address || undefined
                 );
-                if (!spent) alert("No lives");
+                if (!ok) alert("No lives");
               }}
               walletAddress={address || undefined}
             />
@@ -412,17 +419,6 @@ function AppInner() {
       )}
     </div>
   );
-}
-
-// very small fake balance label (optional)
-function useBalanceMock(address?: string | null, chainId?: number) {
-  const [data, set] = useState<{ formatted: string; symbol: string } | null>(
-    null
-  );
-  useEffect(() => {
-    set(null);
-  }, [address, chainId]);
-  return { data };
 }
 
 // ===== Root with WagmiProvider & QueryClient =====
